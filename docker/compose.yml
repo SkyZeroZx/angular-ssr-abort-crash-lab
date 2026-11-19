@@ -1,0 +1,117 @@
+name: aborted-render-process
+
+services:
+  build:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: aborted-render-process
+    command: node node_modules/@angular/cli/bin/ng.js build --configuration ${CONFIG:-production}
+    volumes:
+      - dist:/app/dist
+
+  app:
+    image: aborted-render-process
+    command: sh -c "node api.mjs & exec node dist/aborted-render-process/server/server.mjs"
+    volumes:
+      - dist:/app/dist
+
+  client:
+    image: aborted-render-process
+    command: node tools/attack.mjs app
+    depends_on:
+      - app
+
+  # The same site under a restart policy, the way it would run in production.
+  site:
+    image: aborted-render-process
+    restart: always
+    command: sh -c "node api.mjs & exec node dist/aborted-render-process/server/server.mjs"
+    volumes:
+      - dist:/app/dist
+
+  nginx:
+    image: nginx:${NGINX_VERSION:-1.30.7}
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+
+  nginx-ignore-abort:
+    image: nginx:${NGINX_VERSION:-1.30.7}
+    volumes:
+      - ./nginx-ignore-abort.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - app
+
+  bystanders:
+    image: aborted-render-process
+    command: sh -c "node api.mjs & node tools/bystanders.mjs"
+    volumes:
+      - dist:/app/dist
+
+  hosts:
+    image: aborted-render-process
+    command: sh -c "node api.mjs & node tools/hosts.mjs"
+    volumes:
+      - dist:/app/dist
+
+  # SERVER=serve runs the fetch build (CONFIG=production,fetch), SERVER=baseline the server without Angular.
+  deno:
+    image: denoland/deno:${DENO_VERSION:-2.9.8}
+    working_dir: /app
+    command: sh -c "deno run -A api.mjs & exec deno run -A tools/${SERVER:-serve}.mjs"
+    volumes:
+      - dist:/app/dist
+      - ../api.mjs:/app/api.mjs:ro
+      - ../tools:/app/tools:ro
+
+  bun:
+    image: oven/bun:${BUN_VERSION:-1.4.4}
+    working_dir: /app
+    command: sh -c "bun api.mjs & exec bun tools/${SERVER:-serve}.mjs"
+    volumes:
+      - dist:/app/dist
+      - ../api.mjs:/app/api.mjs:ro
+      - ../tools:/app/tools:ro
+
+  node:
+    image: aborted-render-process
+    command: sh -c "node api.mjs & exec node tools/baseline.mjs"
+    volumes:
+      - ../tools:/app/tools:ro
+
+  # wrangler dev runs the fetch build on workerd. WRANGLER_ARGS adds flags, e.g. --compatibility-flags.
+  workerd:
+    build:
+      context: .
+      dockerfile: Dockerfile.workerd
+    image: aborted-render-process-workerd
+    environment:
+      - CI=true
+      - WRANGLER_SEND_METRICS=false
+    command: sh -c "node api.mjs & exec wrangler dev -c docker/wrangler.toml --ip 0.0.0.0 --port 4000 ${WRANGLER_ARGS:-}"
+    volumes:
+      - dist:/app/dist
+      - ../api.mjs:/app/api.mjs:ro
+      - ../tools:/app/tools:ro
+      - ./wrangler.toml:/app/docker/wrangler.toml:ro
+
+  # A Worker on workerd directly. WORKER picks the module, COMPAT_DATE the compatibility date.
+  workerd-direct:
+    image: aborted-render-process-workerd
+    environment:
+      - CI=true
+      - WRANGLER_SEND_METRICS=false
+      - COMPAT_DATE=${COMPAT_DATE:-2026-11-17}
+      - WORKER=${WORKER:-tools/worker.mjs}
+    command: sh docker/workerd-direct.sh
+    volumes:
+      - dist:/app/dist
+      - ../api.mjs:/app/api.mjs:ro
+      - ../tools:/app/tools:ro
+      - ./wrangler.toml:/app/docker/wrangler.toml:ro
+      - ./workerd-direct.sh:/app/docker/workerd-direct.sh:ro
+
+volumes:
+  dist:

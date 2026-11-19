@@ -1,0 +1,7 @@
+# wrangler dev runs tools/worker.mjs on workerd, Cloudflare's Workers runtime.
+name = "aborted-render-process"
+main = "../tools/worker.mjs"
+compatibility_date = "2025-09-01"
+
+[alias]
+"xhr2" = "../tools/xhr2-stub.mjs"

@@ -1,0 +1,2 @@
+# The docker/*.sh scripts are mounted into Linux containers.
+*.sh text eol=lf
