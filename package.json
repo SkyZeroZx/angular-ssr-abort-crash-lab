@@ -7,7 +7,8 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "serve:ssr:aborted-render-process": "node dist/aborted-render-process/server/server.mjs"
+    "serve:ssr:aborted-render-process": "node dist/aborted-render-process/server/server.mjs",
+    "postinstall": "node tools/apply-pr-34777.mjs"
   },
   "private": true,
   "packageManager": "npm@11.13.0",
