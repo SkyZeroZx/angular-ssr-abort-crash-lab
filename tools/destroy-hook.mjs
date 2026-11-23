@@ -4,12 +4,21 @@
 // Usage: npx ng build && node tools/destroy-hook.mjs   (PORT defaults to 4000, the API uses 4400;
 // SERVER points at another build, e.g. the Express one from --configuration production,node-engine)
 import { spawn } from 'node:child_process';
+import { readdirSync, readFileSync } from 'node:fs';
 import { request } from 'node:http';
 import { connect } from 'node:net';
+import { dirname, join } from 'node:path';
 
 const port = Number(process.env.PORT ?? 4000);
 const serverFile = process.env.SERVER ?? 'dist/aborted-render-process/server/server.mjs';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Say which @angular/ssr the build carries, so a stale dist/ can't be mistaken for the other branch.
+const serverDir = dirname(serverFile);
+const withFix = readdirSync(serverDir)
+  .filter((f) => f.endsWith('.mjs'))
+  .some((f) => readFileSync(join(serverDir, f), 'utf8').includes('An error occurred while destroying the platform'));
+console.log(`@angular/ssr in this build: ${withFix ? 'with' : 'without'} angular/angular-cli#34777\n`);
 
 const api = spawn(process.execPath, ['api.mjs'], { stdio: 'ignore' });
 
