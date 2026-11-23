@@ -1,2 +1,5 @@
 # The docker/*.sh scripts are mounted into Linux containers.
 *.sh text eol=lf
+
+# Checksums of the vendored snapshots, checked with sha256sum -c.
+vendor/SHA256SUMS text eol=lf
